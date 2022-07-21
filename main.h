@@ -8,19 +8,29 @@
 #ifndef __APP_TEMPLATE_H__
 #define __APP_TEMPLATE_H__
 
-#define COLORS_COUNT 4
+#define SCORE_HISTORY_MAX_SIZE 5
+
+struct score_status {
+	int serving_player;
+	int serving_player_tie_break;
+	int games[2];
+	int points[2];
+};
+
+struct score_history_status {
+	struct score_status scores[SCORE_HISTORY_MAX_SIZE];
+	int next_point_index;
+	int size;
+};
 
 // the data structure for our screen
 struct app_data_ {
 	Elf_proc_* proc;
 	// return function address
 	void* ret_f;
-
-	int serving_player;
-	int serving_player_tie_break;
-	int games[2];
-	int points[2];
 	int time_last_point;
+	struct score_status score;
+	struct score_history_status score_history;
 };
 
 // template.c

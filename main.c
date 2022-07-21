@@ -37,13 +37,58 @@ int main(int param0, char** argv) {
 }
 
 void clear_score(struct app_data_* app_data) {
-	app_data->points[0] = POINT_00;
-	app_data->points[1] = POINT_00;
-	app_data->games[0] = 0;
-	app_data->games[1] = 0;
-	app_data->serving_player = 0;
-	app_data->serving_player_tie_break = -1;
+	app_data->score.points[0] = POINT_00;
+	app_data->score.points[1] = POINT_00;
+	app_data->score.games[0] = 0;
+	app_data->score.games[1] = 0;
+	app_data->score.serving_player = 0;
+	app_data->score.serving_player_tie_break = -1;
 	app_data->time_last_point = -1;
+}
+
+void init_score_history(struct app_data_* app_data) {
+	app_data->score_history.next_point_index = 0;
+	app_data->score_history.size = 0;
+}
+
+void copy_score(struct score_status* source, struct score_status* target) {
+	target->serving_player = source->serving_player;
+	target->serving_player_tie_break  = source->serving_player_tie_break;
+	target->games[0] = source->games[0];
+	target->games[1] = source->games[1];
+	target->points[0] = source->points[0];
+	target->points[1] = source->points[1];
+}
+
+void add_score_to_history(struct app_data_* app_data) {
+	copy_score(&(app_data->score), &(app_data->score_history.scores[app_data->score_history.next_point_index]));
+
+	if (app_data->score_history.next_point_index == SCORE_HISTORY_MAX_SIZE - 1) {
+		app_data->score_history.next_point_index = 0;
+	} else {
+		++app_data->score_history.next_point_index;
+	}
+
+	if (app_data->score_history.size < SCORE_HISTORY_MAX_SIZE) {
+		app_data->score_history.size++;
+	}
+}
+
+int set_last_score(struct app_data_* app_data) {
+	if (app_data->score_history.size == 0) {
+		return false;
+	}
+
+	if (app_data->score_history.next_point_index == 0) {
+		app_data->score_history.next_point_index = SCORE_HISTORY_MAX_SIZE - 1;
+	} else {
+		--app_data->score_history.next_point_index;
+	}
+	app_data->score_history.size--;
+
+	copy_score(&(app_data->score_history.scores[app_data->score_history.next_point_index]), &(app_data->score));
+
+	return true;
 }
 
 struct app_data_ * get_app_data() {
@@ -102,10 +147,11 @@ void show_screen (void *param0) {
 
 		// here we do what is necessary if the function is started for the first time from the menu: fill all data structures, etc.
 		clear_score(app_data);
+		init_score_history(app_data);
 	}
 
 	// Here we draw the interface, updating (transferring to video memory) the screen is not necessary
-	draw_screen(app_data->games, app_data->serving_player, app_data->serving_player_tie_break, app_data->points);
+	draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points);
 
 	// In case of inaction, turn off the backlight and avoid app termination
 	set_display_state_value(8, 1);
@@ -152,72 +198,73 @@ int dispatch_screen (void *param) {
 			int tapped_player = -1;
 
 			if (gest->touch_pos_x < VIDEO_X * 0.45) {
-				tapped_player = app_data->serving_player;
+				tapped_player = app_data->score.serving_player;
 			} else if (gest->touch_pos_x > VIDEO_X * 0.55) {
-				tapped_player = (app_data->serving_player+1)%2;
+				tapped_player = (app_data->score.serving_player+1)%2;
 			}
 
 			if (tapped_player == -1) {
 				break;
 			}
 
+			add_score_to_history(app_data);
 			app_data->time_last_point = get_current_timestamp();
 
 			int other_player = (tapped_player + 1)%2;
-			int tapped_player_score = app_data->points[tapped_player];
-			int other_player_score = app_data->points[other_player];
+			int tapped_player_score = app_data->score.points[tapped_player];
+			int other_player_score = app_data->score.points[other_player];
 
-			if (app_data->serving_player_tie_break != -1) {
+			if (app_data->score.serving_player_tie_break != -1) {
 				// Tie break
 				if (tapped_player_score >= 6 && tapped_player_score > other_player_score) {
 					// Tapped player wins the tie break
-					app_data->points[0] = POINT_00;
-					app_data->points[1] = POINT_00;
-					app_data->games[0] = 0;
-					app_data->games[1] = 0;
+					app_data->score.points[0] = POINT_00;
+					app_data->score.points[1] = POINT_00;
+					app_data->score.games[0] = 0;
+					app_data->score.games[1] = 0;
 					// Change the server
-					app_data->serving_player = (app_data->serving_player+1)%2;
-					app_data->serving_player_tie_break = -1;
+					app_data->score.serving_player = (app_data->score.serving_player+1)%2;
+					app_data->score.serving_player_tie_break = -1;
 				} else {
 					if ((tapped_player_score + other_player_score)%2 == 0) {
-						app_data->serving_player_tie_break = (app_data->serving_player_tie_break+1)%2;
+						app_data->score.serving_player_tie_break = (app_data->score.serving_player_tie_break+1)%2;
 					}
-					app_data->points[tapped_player]++;
+					app_data->score.points[tapped_player]++;
 				}
 			} else {
 				if (tapped_player_score == POINT_40 && other_player_score == POINT_AD) {
 					// Tapped player was in deuce and other player is in AD => set other player to deuce
-					app_data->points[other_player] = POINT_40;
+					app_data->score.points[other_player] = POINT_40;
 				} else if (tapped_player_score == POINT_AD || (tapped_player_score == POINT_40 && other_player_score < POINT_40)) {
 					// Tapped player wins the game
 
 					// Clear points
-					app_data->points[0] = POINT_00;
-					app_data->points[1] = POINT_00;
+					app_data->score.points[0] = POINT_00;
+					app_data->score.points[1] = POINT_00;
 					// Add a game to the winner
-					if (app_data->games[tapped_player] >= 5 && app_data->games[tapped_player] > app_data->games[other_player]) {
+					if (app_data->score.games[tapped_player] >= 5 && app_data->score.games[tapped_player] > app_data->score.games[other_player]) {
 						// Wins the set as well
-						app_data->points[0] = POINT_00;
-						app_data->points[1] = POINT_00;
-						app_data->games[0] = 0;
-						app_data->games[1] = 0;
+						app_data->score.points[0] = POINT_00;
+						app_data->score.points[1] = POINT_00;
+						app_data->score.games[0] = 0;
+						app_data->score.games[1] = 0;
 					} else {
-						app_data->games[tapped_player]++;
+						app_data->score.games[tapped_player]++;
 					}
 
 					// Change the server
-					app_data->serving_player = (app_data->serving_player+1)%2;
+					app_data->score.serving_player = (app_data->score.serving_player+1)%2;
 					// Tie break
-					if (app_data->games[tapped_player] == MAX_GAMES && app_data->games[other_player] == MAX_GAMES) {
-						app_data->serving_player_tie_break = app_data->serving_player;
+					if (app_data->score.games[tapped_player] == MAX_GAMES && app_data->score.games[other_player] == MAX_GAMES) {
+						app_data->score.serving_player_tie_break = app_data->score.serving_player;
 					}
 				} else {
-					app_data->points[tapped_player]++;
+					app_data->score.points[tapped_player]++;
 				}
 			}
 
 			// redraw the screen
-			draw_screen(app_data->games, app_data->serving_player, app_data->serving_player_tie_break, app_data->points);
+			draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points);
 			repaint_screen_lines(1, VIDEO_Y);
 
 			break;
@@ -226,6 +273,13 @@ int dispatch_screen (void *param) {
 			break;
 		};
 		case GESTURE_SWIPE_LEFT: {
+			if (set_last_score(app_data)) {
+				vibrate(1, 70, 0);
+				app_data->time_last_point = get_current_timestamp();
+				// redraw the screen
+				draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points);
+				repaint_screen_lines(1, VIDEO_Y);
+			}
 			break;
 		};
 		case GESTURE_SWIPE_UP: {
