@@ -20,6 +20,7 @@ struct app_data_ {
 	int serving_player_tie_break;
 	int games[2];
 	int points[2];
+	int time_last_point;
 };
 
 // template.c
@@ -28,5 +29,6 @@ void key_press_screen();
 void long_key_press();
 int dispatch_screen (void *param);
 void screen_job();
+void draw_time_last_point(int time_last_point);
 void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2]);
 #endif

@@ -14,6 +14,7 @@
 #define POINT_40	3
 #define POINT_AD	4
 #define MAX_GAMES	6
+#define TIMER_Y		115
 
 static char* ALL_POINTS[] = {"00", "15", "30", "40", "AD"};
 
@@ -42,6 +43,14 @@ void clear_score(struct app_data_* app_data) {
 	app_data->games[1] = 0;
 	app_data->serving_player = 0;
 	app_data->serving_player_tie_break = -1;
+	app_data->time_last_point = -1;
+}
+
+struct app_data_ * get_app_data() {
+	// pointer to a pointer to screen data
+	struct app_data_**  app_data_p = get_ptr_temp_buf_2();
+	// pointer to screen data
+	return *app_data_p;
 }
 
 void show_screen (void *param0) {
@@ -98,8 +107,11 @@ void show_screen (void *param0) {
 	// Here we draw the interface, updating (transferring to video memory) the screen is not necessary
 	draw_screen(app_data->games, app_data->serving_player, app_data->serving_player_tie_break, app_data->points);
 
+	// In case of inaction, turn off the backlight and avoid app termination
 	set_display_state_value(8, 1);
 	set_display_state_value(2, 1);
+
+	set_update_period(1, 1000);
 }
 
 void key_press_screen() {
@@ -112,7 +124,15 @@ void key_press_screen() {
 	show_menu_animate(app_data->ret_f, (unsigned int)show_screen, ANIMATE_RIGHT);
 }
 
-void screen_job() {}
+void screen_job() {
+	// pointer to a pointer to screen data
+	struct app_data_** 	app_data_p = get_ptr_temp_buf_2();
+	// pointer to screen data
+	struct app_data_ *	app_data = *app_data_p;
+
+	draw_time_last_point(app_data->time_last_point);
+	set_update_period(1, 1000);
+}
 
 int dispatch_screen (void *param) {
 	// pointer to a pointer to screen data
@@ -141,9 +161,11 @@ int dispatch_screen (void *param) {
 				break;
 			}
 
-				int other_player = (tapped_player + 1)%2;
-				int tapped_player_score = app_data->points[tapped_player];
-				int other_player_score = app_data->points[other_player];
+			app_data->time_last_point = get_current_timestamp();
+
+			int other_player = (tapped_player + 1)%2;
+			int tapped_player_score = app_data->points[tapped_player];
+			int other_player_score = app_data->points[other_player];
 
 			if (app_data->serving_player_tie_break != -1) {
 				// Tie break
@@ -197,7 +219,6 @@ int dispatch_screen (void *param) {
 			// redraw the screen
 			draw_screen(app_data->games, app_data->serving_player, app_data->serving_player_tie_break, app_data->points);
 			repaint_screen_lines(1, VIDEO_Y);
-
 
 			break;
 		};
@@ -278,6 +299,20 @@ void print_point(int points[2], int pos_x[2], int screen_index, int serving_play
 	}
 
 	text_out_font(FONT_LETTER_BIG_6, text, pos_x[screen_index]-points_text_width, 89, 5);
+}
+
+void draw_time_last_point(int time_last_point) {
+	if (time_last_point != -1) {
+		set_bg_color(COLOR_BLACK);
+		draw_filled_rect_bg(1, TIMER_Y, VIDEO_X, TIMER_Y + get_text_height());
+		load_font();
+		set_fg_color(COLOR_GREEN);
+
+		int diff_time = get_current_timestamp() - time_last_point;
+		char string_diff_time[10];
+		_sprintf(string_diff_time, "%d", diff_time);
+		text_out_center(string_diff_time, VIDEO_X/2, TIMER_Y);
+	}
 }
 
 void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2]) {
