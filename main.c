@@ -14,7 +14,7 @@
 #define POINT_40	3
 #define POINT_AD	4
 #define MAX_GAMES	6
-#define TIMER_Y		115
+#define POS_Y_TIMER		115
 
 static char* ALL_POINTS[] = {"00", "15", "30", "40", "AD"};
 
@@ -41,7 +41,7 @@ void clear_score(struct app_data_* app_data) {
 	app_data->score.points[1] = POINT_00;
 	app_data->score.games[0] = 0;
 	app_data->score.games[1] = 0;
-	app_data->score.serving_player = 0;
+	app_data->score.serving_player = -1;
 	app_data->score.serving_player_tie_break = -1;
 	app_data->time_last_point = -1;
 }
@@ -195,71 +195,77 @@ int dispatch_screen (void *param) {
 			// tap
 			vibrate(1, 40, 0);
 
-			int tapped_player = -1;
+			int tapped_index = -1;
 
 			if (gest->touch_pos_x < VIDEO_X * 0.45) {
-				tapped_player = app_data->score.serving_player;
+				tapped_index = 0;
 			} else if (gest->touch_pos_x > VIDEO_X * 0.55) {
-				tapped_player = (app_data->score.serving_player+1)%2;
+				tapped_index = 1;
 			}
 
-			if (tapped_player == -1) {
+			if (tapped_index == -1) {
 				break;
 			}
 
-			add_score_to_history(app_data);
-			app_data->time_last_point = get_current_timestamp();
-
-			int other_player = (tapped_player + 1)%2;
-			int tapped_player_score = app_data->score.points[tapped_player];
-			int other_player_score = app_data->score.points[other_player];
-
-			if (app_data->score.serving_player_tie_break != -1) {
-				// Tie break
-				if (tapped_player_score >= 6 && tapped_player_score > other_player_score) {
-					// Tapped player wins the tie break
-					app_data->score.points[0] = POINT_00;
-					app_data->score.points[1] = POINT_00;
-					app_data->score.games[0] = 0;
-					app_data->score.games[1] = 0;
-					// Change the server
-					app_data->score.serving_player = (app_data->score.serving_player+1)%2;
-					app_data->score.serving_player_tie_break = -1;
-				} else {
-					if ((tapped_player_score + other_player_score)%2 == 0) {
-						app_data->score.serving_player_tie_break = (app_data->score.serving_player_tie_break+1)%2;
-					}
-					app_data->score.points[tapped_player]++;
-				}
+			if (app_data->score.serving_player == -1) {
+				app_data->score.serving_player = tapped_index;
 			} else {
-				if (tapped_player_score == POINT_40 && other_player_score == POINT_AD) {
-					// Tapped player was in deuce and other player is in AD => set other player to deuce
-					app_data->score.points[other_player] = POINT_40;
-				} else if (tapped_player_score == POINT_AD || (tapped_player_score == POINT_40 && other_player_score < POINT_40)) {
-					// Tapped player wins the game
+				int tapped_player = (app_data->score.serving_player+tapped_index)%2;
 
-					// Clear points
-					app_data->score.points[0] = POINT_00;
-					app_data->score.points[1] = POINT_00;
-					// Add a game to the winner
-					if (app_data->score.games[tapped_player] >= 5 && app_data->score.games[tapped_player] > app_data->score.games[other_player]) {
-						// Wins the set as well
+				add_score_to_history(app_data);
+				app_data->time_last_point = get_current_timestamp();
+
+				int other_player = (tapped_player + 1)%2;
+				int tapped_player_score = app_data->score.points[tapped_player];
+				int other_player_score = app_data->score.points[other_player];
+
+				if (app_data->score.serving_player_tie_break != -1) {
+					// Tie break
+					if (tapped_player_score >= 6 && tapped_player_score > other_player_score) {
+						// Tapped player wins the tie break
 						app_data->score.points[0] = POINT_00;
 						app_data->score.points[1] = POINT_00;
 						app_data->score.games[0] = 0;
 						app_data->score.games[1] = 0;
+						// Change the server
+						app_data->score.serving_player = (app_data->score.serving_player+1)%2;
+						app_data->score.serving_player_tie_break = -1;
 					} else {
-						app_data->score.games[tapped_player]++;
-					}
-
-					// Change the server
-					app_data->score.serving_player = (app_data->score.serving_player+1)%2;
-					// Tie break
-					if (app_data->score.games[tapped_player] == MAX_GAMES && app_data->score.games[other_player] == MAX_GAMES) {
-						app_data->score.serving_player_tie_break = app_data->score.serving_player;
+						if ((tapped_player_score + other_player_score)%2 == 0) {
+							app_data->score.serving_player_tie_break = (app_data->score.serving_player_tie_break+1)%2;
+						}
+						app_data->score.points[tapped_player]++;
 					}
 				} else {
-					app_data->score.points[tapped_player]++;
+					if (tapped_player_score == POINT_40 && other_player_score == POINT_AD) {
+						// Tapped player was in deuce and other player is in AD => set other player to deuce
+						app_data->score.points[other_player] = POINT_40;
+					} else if (tapped_player_score == POINT_AD || (tapped_player_score == POINT_40 && other_player_score < POINT_40)) {
+						// Tapped player wins the game
+
+						// Clear points
+						app_data->score.points[0] = POINT_00;
+						app_data->score.points[1] = POINT_00;
+						// Add a game to the winner
+						if (app_data->score.games[tapped_player] >= 5 && app_data->score.games[tapped_player] > app_data->score.games[other_player]) {
+							// Wins the set as well
+							app_data->score.points[0] = POINT_00;
+							app_data->score.points[1] = POINT_00;
+							app_data->score.games[0] = 0;
+							app_data->score.games[1] = 0;
+						} else {
+							app_data->score.games[tapped_player]++;
+						}
+
+						// Change the server
+						app_data->score.serving_player = (app_data->score.serving_player+1)%2;
+						// Tie break
+						if (app_data->score.games[tapped_player] == MAX_GAMES && app_data->score.games[other_player] == MAX_GAMES) {
+							app_data->score.serving_player_tie_break = app_data->score.serving_player;
+						}
+					} else {
+						app_data->score.points[tapped_player]++;
+					}
 				}
 			}
 
@@ -358,14 +364,14 @@ void print_point(int points[2], int pos_x[2], int screen_index, int serving_play
 void draw_time_last_point(int time_last_point) {
 	if (time_last_point != -1) {
 		set_bg_color(COLOR_BLACK);
-		draw_filled_rect_bg(1, TIMER_Y, VIDEO_X, TIMER_Y + get_text_height());
+		draw_filled_rect_bg(1, POS_Y_TIMER, VIDEO_X, POS_Y_TIMER + get_text_height());
 		load_font();
 		set_fg_color(COLOR_GREEN);
 
 		int diff_time = get_current_timestamp() - time_last_point;
 		char string_diff_time[10];
 		_sprintf(string_diff_time, "%d", diff_time);
-		text_out_center(string_diff_time, VIDEO_X/2, TIMER_Y);
+		text_out_center(string_diff_time, VIDEO_X/2, POS_Y_TIMER);
 	}
 }
 
