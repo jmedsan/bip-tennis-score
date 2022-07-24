@@ -43,6 +43,7 @@ void clear_score(struct app_data_* app_data) {
 	app_data->score.games[1] = 0;
 	app_data->score.serving_player = -1;
 	app_data->score.serving_player_tie_break = -1;
+	_strcpy(app_data->score.previous_sets, "");
 	app_data->time_last_point = -1;
 }
 
@@ -58,6 +59,7 @@ void copy_score(struct score_status* source, struct score_status* target) {
 	target->games[1] = source->games[1];
 	target->points[0] = source->points[0];
 	target->points[1] = source->points[1];
+	_strcpy(target->previous_sets, source->previous_sets);
 }
 
 void add_score_to_history(struct app_data_* app_data) {
@@ -151,7 +153,7 @@ void show_screen (void *param0) {
 	}
 
 	// Here we draw the interface, updating (transferring to video memory) the screen is not necessary
-	draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points);
+	draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets);
 
 	// In case of inaction, turn off the backlight and avoid app termination
 	set_display_state_value(8, 1);
@@ -178,6 +180,17 @@ void screen_job() {
 
 	draw_time_last_point(app_data->time_last_point);
 	set_update_period(1, 1000);
+}
+
+void concat_set_result(char *dest, int games[2]) {
+	char *separator;
+	if (_strlen(dest) == 0) {
+		separator = "";
+	} else {
+		separator = " ";
+	}
+
+	_sprintf(dest + _strlen(dest), "%s%d-%d", separator, games[0], games[1]);
 }
 
 int dispatch_screen (void *param) {
@@ -207,12 +220,13 @@ int dispatch_screen (void *param) {
 				break;
 			}
 
+			add_score_to_history(app_data);
+
 			if (app_data->score.serving_player == -1) {
 				app_data->score.serving_player = tapped_index;
 			} else {
 				int tapped_player = (app_data->score.serving_player+tapped_index)%2;
 
-				add_score_to_history(app_data);
 				app_data->time_last_point = get_current_timestamp();
 
 				int other_player = (tapped_player + 1)%2;
@@ -223,13 +237,22 @@ int dispatch_screen (void *param) {
 					// Tie break
 					if (tapped_player_score >= 6 && tapped_player_score > other_player_score) {
 						// Tapped player wins the tie break
+
+						app_data->score.games[tapped_player]++;
+
+						// Update previous sets string
+						concat_set_result(app_data->score.previous_sets, app_data->score.games);
+
 						app_data->score.points[0] = POINT_00;
 						app_data->score.points[1] = POINT_00;
+
 						app_data->score.games[0] = 0;
 						app_data->score.games[1] = 0;
 						// Change the server
-						app_data->score.serving_player = (app_data->score.serving_player+1)%2;
-						app_data->score.serving_player_tie_break = -1;
+						/*app_data->score.serving_player = (app_data->score.serving_player+1)%2;
+						app_data->score.serving_player_tie_break = -1;*/
+						// Choose server at the beginning of each set
+						app_data->score.serving_player = -1;
 					} else {
 						if ((tapped_player_score + other_player_score)%2 == 0) {
 							app_data->score.serving_player_tie_break = (app_data->score.serving_player_tie_break+1)%2;
@@ -247,14 +270,19 @@ int dispatch_screen (void *param) {
 						app_data->score.points[0] = POINT_00;
 						app_data->score.points[1] = POINT_00;
 						// Add a game to the winner
-						if (app_data->score.games[tapped_player] >= 5 && app_data->score.games[tapped_player] > app_data->score.games[other_player]) {
+						app_data->score.games[tapped_player]++;
+
+						if (app_data->score.games[tapped_player] >= MAX_GAMES && app_data->score.games[tapped_player] - app_data->score.games[other_player] >= 2) {
 							// Wins the set as well
-							app_data->score.points[0] = POINT_00;
-							app_data->score.points[1] = POINT_00;
+
+							// Update previous sets string
+							concat_set_result(app_data->score.previous_sets, app_data->score.games);
+
 							app_data->score.games[0] = 0;
 							app_data->score.games[1] = 0;
-						} else {
-							app_data->score.games[tapped_player]++;
+
+							// Choose server at the beginning of each set
+							app_data->score.serving_player = -1;
 						}
 
 						// Change the server
@@ -270,7 +298,7 @@ int dispatch_screen (void *param) {
 			}
 
 			// redraw the screen
-			draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points);
+			draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets);
 			repaint_screen_lines(1, VIDEO_Y);
 
 			break;
@@ -283,7 +311,7 @@ int dispatch_screen (void *param) {
 				vibrate(1, 70, 0);
 				app_data->time_last_point = get_current_timestamp();
 				// redraw the screen
-				draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points);
+				draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets);
 				repaint_screen_lines(1, VIDEO_Y);
 			}
 			break;
@@ -330,7 +358,7 @@ void print_game(int games[2], int pos_x[2], int player_index, int serving_player
 	_sprintf(string_game, format, games[player_index]);
 
 	set_fg_color(color);
-	text_out_center(string_game, (int)pos_x[player_index], 36);
+	text_out_center(string_game, (int)pos_x[player_index], 52);
 }
 
 void print_point(int points[2], int pos_x[2], int screen_index, int serving_player, int serving_player_tie_break) {
@@ -375,7 +403,7 @@ void draw_time_last_point(int time_last_point) {
 	}
 }
 
-void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2]) {
+void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2], char *previous_sets) {
 	// Header
 	set_bg_color(COLOR_BLACK);
 	fill_screen_bg();
@@ -384,6 +412,10 @@ void draw_screen(int games[2], int serving_player, int serving_player_tie_break,
 	text_out_center("Tennis Score", 88, 3);
 
 	int pos_x[2] = { get_player_pos_x(0), get_player_pos_x(1) };
+
+	// Sets
+	set_fg_color(COLOR_WHITE);
+	text_out_center(previous_sets, VIDEO_X/2, 30);
 
 	// Games
 	print_game(games, pos_x, 0, serving_player, serving_player_tie_break);

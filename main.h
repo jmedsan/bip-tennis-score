@@ -8,13 +8,15 @@
 #ifndef __APP_TEMPLATE_H__
 #define __APP_TEMPLATE_H__
 
-#define SCORE_HISTORY_MAX_SIZE 5
+#define SCORE_HISTORY_MAX_SIZE 8
+#define SETS_BUFFER_SIZE 200
 
 struct score_status {
 	int serving_player;
 	int serving_player_tie_break;
 	int games[2];
 	int points[2];
+	char previous_sets[SETS_BUFFER_SIZE];
 };
 
 struct score_history_status {
@@ -40,5 +42,5 @@ void long_key_press();
 int dispatch_screen (void *param);
 void screen_job();
 void draw_time_last_point(int time_last_point);
-void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2]);
+void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2], char *previous_sets);
 #endif
