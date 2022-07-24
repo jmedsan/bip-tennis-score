@@ -15,6 +15,7 @@
 #define POINT_AD	4
 #define MAX_GAMES	6
 #define POS_Y_TIMER		115
+#define POS_Y_CLOCK		150
 
 static char* ALL_POINTS[] = {"00", "15", "30", "40", "AD"};
 
@@ -100,6 +101,104 @@ struct app_data_ * get_app_data() {
 	return *app_data_p;
 }
 
+void draw_clock(int set_bg) {
+	// Draw clock
+
+	if (set_bg == true) {
+		set_bg_color(COLOR_BLACK);
+		draw_filled_rect_bg(1, POS_Y_CLOCK, VIDEO_X, POS_Y_CLOCK + get_text_height());
+	}
+
+	set_fg_color(COLOR_AQUA);
+	struct datetime_ datetime;
+	get_current_date_time(&datetime);
+	char time_text[10];
+	_sprintf(time_text, "%02d:%02d:%02d", datetime.hour, datetime.min, datetime.sec);
+	text_out_center(time_text, VIDEO_X/2, POS_Y_CLOCK);
+}
+
+int get_player_pos_x(int player_index) {
+	float player_quarter = (float)((float)player_index + 0.5) * 2.0;
+	float quarter_video_x = ((float)VIDEO_X / 4.0);
+	float pos_x = player_quarter * quarter_video_x;
+	return (int)pos_x;
+}
+
+void print_game(int games[2], int pos_x[2], int player_index, int serving_player, int serving_player_tie_break) {
+	int color;
+	char* format;
+	int length;
+
+	if (player_index == serving_player_tie_break || (serving_player_tie_break == -1 && player_index == serving_player)) {
+		color = COLOR_YELLOW;
+		format = "(%d)";
+		length = 3;
+	} else {
+		color = COLOR_WHITE;
+		format = "%d";
+		length = 1;
+	}
+	
+	char* string_game = (char*)pvPortMalloc(length + 1);
+	_sprintf(string_game, format, games[player_index]);
+
+	set_fg_color(color);
+	text_out_center(string_game, (int)pos_x[player_index], 52);
+}
+
+void print_point(int points[2], int pos_x[2], int screen_index, int serving_player, int serving_player_tie_break) {
+	int points_text_width;
+	int player_index;
+
+	if (screen_index == 0) {
+		player_index = serving_player;
+	} else {
+		player_index = (serving_player+1)%2;
+	}
+
+	int player_points = points[player_index];
+	char* text;
+	if (serving_player_tie_break != -1) {
+		text = (char*)pvPortMalloc(2);
+		_sprintf(text, "%02d", player_points);
+	} else {
+		text = ALL_POINTS[player_points];
+	}
+
+	if (serving_player_tie_break == -1 && player_points == POINT_AD) {
+		points_text_width = 19;
+	} else {
+		points_text_width = 15;
+	}
+
+	text_out_font(FONT_LETTER_BIG_6, text, pos_x[screen_index]-points_text_width, 89, 5);
+}
+
+void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2], char *previous_sets) {
+	// Header
+	set_bg_color(COLOR_BLACK);
+	fill_screen_bg();
+	load_font();
+	set_fg_color(COLOR_YELLOW);
+	text_out_center("Tennis Score", 88, 3);
+
+	int pos_x[2] = { get_player_pos_x(0), get_player_pos_x(1) };
+
+	// Sets
+	set_fg_color(COLOR_WHITE);
+	text_out_center(previous_sets, VIDEO_X/2, 30);
+
+	// Games
+	print_game(games, pos_x, 0, serving_player, serving_player_tie_break);
+	print_game(games, pos_x, 1, serving_player, serving_player_tie_break);
+
+	// Points
+	print_point(points, pos_x, 0, serving_player, serving_player_tie_break);
+	print_point(points, pos_x, 1, serving_player, serving_player_tie_break);
+
+	draw_clock(false);
+}
+
 void show_screen (void *param0) {
 	// pointer to a pointer to screen data
 	struct app_data_** app_data_p = get_ptr_temp_buf_2();
@@ -172,6 +271,20 @@ void key_press_screen() {
 	show_menu_animate(app_data->ret_f, (unsigned int)show_screen, ANIMATE_RIGHT);
 }
 
+void draw_time_last_point(int time_last_point) {
+	if (time_last_point != -1) {
+		set_bg_color(COLOR_BLACK);
+		draw_filled_rect_bg(1, POS_Y_TIMER, VIDEO_X, POS_Y_TIMER + get_text_height());
+		load_font();
+		set_fg_color(COLOR_GREEN);
+
+		int diff_time = get_current_timestamp() - time_last_point;
+		char string_diff_time[10];
+		_sprintf(string_diff_time, "%d", diff_time);
+		text_out_center(string_diff_time, VIDEO_X/2, POS_Y_TIMER);
+	}
+}
+
 void screen_job() {
 	// pointer to a pointer to screen data
 	struct app_data_** 	app_data_p = get_ptr_temp_buf_2();
@@ -179,6 +292,7 @@ void screen_job() {
 	struct app_data_ *	app_data = *app_data_p;
 
 	draw_time_last_point(app_data->time_last_point);
+	draw_clock(true);
 	set_update_period(1, 1000);
 }
 
@@ -248,11 +362,10 @@ int dispatch_screen (void *param) {
 
 						app_data->score.games[0] = 0;
 						app_data->score.games[1] = 0;
-						// Change the server
-						/*app_data->score.serving_player = (app_data->score.serving_player+1)%2;
-						app_data->score.serving_player_tie_break = -1;*/
+
 						// Choose server at the beginning of each set
 						app_data->score.serving_player = -1;
+						app_data->score.serving_player_tie_break = -1;
 					} else {
 						if ((tapped_player_score + other_player_score)%2 == 0) {
 							app_data->score.serving_player_tie_break = (app_data->score.serving_player_tie_break+1)%2;
@@ -283,10 +396,11 @@ int dispatch_screen (void *param) {
 
 							// Choose server at the beginning of each set
 							app_data->score.serving_player = -1;
+						} else {
+							// Change the server
+							app_data->score.serving_player = (app_data->score.serving_player+1)%2;
 						}
 
-						// Change the server
-						app_data->score.serving_player = (app_data->score.serving_player+1)%2;
 						// Tie break
 						if (app_data->score.games[tapped_player] == MAX_GAMES && app_data->score.games[other_player] == MAX_GAMES) {
 							app_data->score.serving_player_tie_break = app_data->score.serving_player;
@@ -329,103 +443,4 @@ int dispatch_screen (void *param) {
 	}
 
 	return result;
-}
-
-// user code
-int get_player_pos_x(int player_index) {
-	float player_quarter = (float)((float)player_index + 0.5) * 2.0;
-	float quarter_video_x = ((float)VIDEO_X / 4.0);
-	float pos_x = player_quarter * quarter_video_x;
-	return (int)pos_x;
-}
-
-void print_game(int games[2], int pos_x[2], int player_index, int serving_player, int serving_player_tie_break) {
-	int color;
-	char* format;
-	int length;
-
-	if (player_index == serving_player_tie_break || (serving_player_tie_break == -1 && player_index == serving_player)) {
-		color = COLOR_YELLOW;
-		format = "(%d)";
-		length = 3;
-	} else {
-		color = COLOR_WHITE;
-		format = "%d";
-		length = 1;
-	}
-	
-	char* string_game = (char*)pvPortMalloc(length + 1);
-	_sprintf(string_game, format, games[player_index]);
-
-	set_fg_color(color);
-	text_out_center(string_game, (int)pos_x[player_index], 52);
-}
-
-void print_point(int points[2], int pos_x[2], int screen_index, int serving_player, int serving_player_tie_break) {
-	int points_text_width;
-	int player_index;
-
-	if (screen_index == 0) {
-		player_index = serving_player;
-	} else {
-		player_index = (serving_player+1)%2;
-	}
-
-	int player_points = points[player_index];
-	char* text;
-	if (serving_player_tie_break != -1) {
-		text = (char*)pvPortMalloc(2);
-		_sprintf(text, "%02d", player_points);
-	} else {
-		text = ALL_POINTS[player_points];
-	}
-
-	if (serving_player_tie_break == -1 && player_points == POINT_AD) {
-		points_text_width = 19;
-	} else {
-		points_text_width = 15;
-	}
-
-	text_out_font(FONT_LETTER_BIG_6, text, pos_x[screen_index]-points_text_width, 89, 5);
-}
-
-void draw_time_last_point(int time_last_point) {
-	if (time_last_point != -1) {
-		set_bg_color(COLOR_BLACK);
-		draw_filled_rect_bg(1, POS_Y_TIMER, VIDEO_X, POS_Y_TIMER + get_text_height());
-		load_font();
-		set_fg_color(COLOR_GREEN);
-
-		int diff_time = get_current_timestamp() - time_last_point;
-		char string_diff_time[10];
-		_sprintf(string_diff_time, "%d", diff_time);
-		text_out_center(string_diff_time, VIDEO_X/2, POS_Y_TIMER);
-	}
-}
-
-void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2], char *previous_sets) {
-	// Header
-	set_bg_color(COLOR_BLACK);
-	fill_screen_bg();
-	load_font();
-	set_fg_color(COLOR_YELLOW);
-	text_out_center("Tennis Score", 88, 3);
-
-	int pos_x[2] = { get_player_pos_x(0), get_player_pos_x(1) };
-
-	// Sets
-	set_fg_color(COLOR_WHITE);
-	text_out_center(previous_sets, VIDEO_X/2, 30);
-
-	// Games
-	print_game(games, pos_x, 0, serving_player, serving_player_tie_break);
-	print_game(games, pos_x, 1, serving_player, serving_player_tie_break);
-
-	// Points
-	print_point(points, pos_x, 0, serving_player, serving_player_tie_break);
-	print_point(points, pos_x, 1, serving_player, serving_player_tie_break);
-
-	// Footer
-	set_fg_color(COLOR_AQUA);
-	text_out_center("Tap to increase", 88, 150);
 }
