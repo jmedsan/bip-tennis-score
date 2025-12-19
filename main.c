@@ -389,6 +389,8 @@ int dispatch_screen (void *param) {
 
 						app_data->score.points[0] = POINT_00;
 						app_data->score.points[1] = POINT_00;
+						// Reset advantage count
+						app_data->score.advantage_count = 0;
 
 						app_data->score.games[0] = 0;
 						app_data->score.games[1] = 0;
@@ -412,6 +414,8 @@ int dispatch_screen (void *param) {
 						// Clear points
 						app_data->score.points[0] = POINT_00;
 						app_data->score.points[1] = POINT_00;
+						// Reset advantage count
+						app_data->score.advantage_count = 0;
 						// Add a game to the winner
 						app_data->score.games[tapped_player]++;
 
