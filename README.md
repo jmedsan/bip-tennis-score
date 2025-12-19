@@ -63,13 +63,6 @@ TennisScore/
 ├── main.c                          Main application code
 ├── main.h                          Data structures and constants
 ├── build.bat                       Build script for ARM cross-compiler
-├── .claude/
-│   ├── CLAUDE.md                   Development guidance
-│   └── specs/
-│       └── padel-star-point/
-│           ├── requirements.md     Feature requirements
-│           ├── design.md          Architectural design
-│           └── tasks.md           Implementation tasks
 └── README.md                       This file
 ```
 
@@ -129,18 +122,6 @@ Uses FreeRTOS dynamic allocation:
 - Y coordinate is baseline for text top-left
 - Centered text uses `text_out_center(text, x_center, y)`
 - Custom positioning uses `text_out_font(font, text, x, y, color)`
-
-## Testing on Device
-
-Since there is no Amazfit Bip simulator available, testing must be done on the actual watch:
-
-1. Build the application with `build.bat`
-2. Transfer `TennisScore.elf` to the watch (consult BipOS flashing instructions)
-3. Test normal scoring: tap left/right sides to increment scores
-4. Test deuce scenarios: reach 40-40 and verify counter behavior
-5. Test star point: score 2 advantages, return to deuce, verify "STAR" display in cyan
-6. Test undo: swipe left and verify counter decrements correctly
-7. Test new game: complete a game and verify counter resets to 0
 
 ## References
 
