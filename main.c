@@ -14,8 +14,8 @@
 #define POINT_40	3
 #define POINT_AD	4
 #define MAX_GAMES	6
-#define POS_Y_TIMER		115
-#define POS_Y_CLOCK		150
+#define POS_Y_TIMER		112
+#define POS_Y_CLOCK		135
 
 static char* ALL_POINTS[] = {"00", "15", "30", "40", "AD"};
 
