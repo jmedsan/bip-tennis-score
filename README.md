@@ -85,18 +85,7 @@ TennisScore/
 
 ### Game Logic
 
-Points progression: 0 → 15 → 30 → 40
-
-At deuce (40-40):
-- Players must win by 2 points
-- Winning score is "AD" (advantage)
-- Advantage counter increments each time a player enters AD from 40-40
-- Returning to deuce keeps the counter value
-
-Game ends when:
-- A player wins from advantage (2+ point lead), OR
-- A player reaches 6+ games with 2+ game lead, OR
-- In tie-break: first to 7 points with 2+ lead
+The app tracks deuce/advantage situations and displays an advantage counter that increments each time a player enters advantage from 40-40. The counter persists through undo operations and resets when a new game starts.
 
 ### Memory Management
 
