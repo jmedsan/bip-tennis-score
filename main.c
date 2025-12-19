@@ -1,15 +1,6 @@
 #include <libbip.h>
 #include "main.h"
 
-#define POINT_00	0
-#define POINT_15	1
-#define POINT_30	2
-#define POINT_40	3
-#define POINT_AD	4
-#define MAX_GAMES	6
-#define POS_Y_TIMER		112
-#define POS_Y_CLOCK		135
-
 static char* ALL_POINTS[] = {"00", "15", "30", "40", "AD"};
 
 // screen menu structure - for each screen is different
@@ -138,7 +129,7 @@ void print_game(int games[2], int pos_x[2], int player_index, int serving_player
 	_sprintf(string_game, format, games[player_index]);
 
 	set_fg_color(color);
-	text_out_center(string_game, (int)pos_x[player_index], 52);
+	text_out_center(string_game, (int)pos_x[player_index], POS_Y_GAMES);
 }
 
 void print_point(int points[2], int pos_x[2], int screen_index, int serving_player, int serving_player_tie_break) {
@@ -161,12 +152,12 @@ void print_point(int points[2], int pos_x[2], int screen_index, int serving_play
 	}
 
 	if (serving_player_tie_break == -1 && player_points == POINT_AD) {
-		points_text_width = 19;
+		points_text_width = POINT_TEXT_WIDTH_AD;
 	} else {
-		points_text_width = 15;
+		points_text_width = POINT_TEXT_WIDTH_NORMAL;
 	}
 
-	text_out_font(FONT_LETTER_BIG_6, text, pos_x[screen_index]-points_text_width, 89, 5);
+	text_out_font(FONT_LETTER_BIG_6, text, pos_x[screen_index]-points_text_width, POS_Y_POINTS, 5);
 }
 
 void draw_advantage_counter(int advantage_count, int points[2]) {
@@ -195,19 +186,14 @@ void draw_advantage_counter(int advantage_count, int points[2]) {
 	} else {
 		// Numeric counter: display "N-AD" in light gray
 		text = (char*)pvPortMalloc(10);
-		_sprintf(text, "%d-AD", advantage_count);
+		_sprintf(text, "AD#%d", advantage_count);
 		color = COLOR_ADVANTAGE_COUNTER;
 		needs_free = 1;
 	}
 
-	// Load font and calculate centered position
-	load_font();
-	int text_w = text_width(text);
-	int x = (VIDEO_X / 2) - (text_w / 2);
-	int y = 84;
-
 	// Render centered text
-	text_out_font(FONT_LETTER_MIDDLE_5, text, x, y, color);
+	set_fg_color(color);
+	text_out_center(text, OFFSET_X_ADVANTAGE+VIDEO_X/2, POS_Y_POINTS);
 
 	// Free allocated memory if needed
 	if (needs_free) {
@@ -221,13 +207,13 @@ void draw_screen(int games[2], int serving_player, int serving_player_tie_break,
 	fill_screen_bg();
 	load_font();
 	set_fg_color(COLOR_YELLOW);
-	text_out_center("Tennis Score", 88, 3);
+	text_out_center("Tennis Score", VIDEO_X/2, POS_Y_HEADER);
 
 	int pos_x[2] = { get_player_pos_x(0), get_player_pos_x(1) };
 
 	// Sets
 	set_fg_color(COLOR_WHITE);
-	text_out_center(previous_sets, VIDEO_X/2, 30);
+	text_out_center(previous_sets, VIDEO_X/2, POS_Y_SETS);
 
 	// Games
 	print_game(games, pos_x, 0, serving_player, serving_player_tie_break);
@@ -368,9 +354,9 @@ int dispatch_screen (void *param) {
 
 			int tapped_index = -1;
 
-			if (gest->touch_pos_x < VIDEO_X * 0.45) {
+			if (gest->touch_pos_x < VIDEO_X * TAP_THRESHOLD_LEFT) {
 				tapped_index = 0;
-			} else if (gest->touch_pos_x > VIDEO_X * 0.55) {
+			} else if (gest->touch_pos_x > VIDEO_X * TAP_THRESHOLD_RIGHT) {
 				tapped_index = 1;
 			}
 

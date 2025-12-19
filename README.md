@@ -42,19 +42,48 @@ Displays an informational advantage counter between player scores during deuce/a
 
 ### Requirements
 
-- ARM Cortex-M4 cross-compiler: `arm-none-eabi-gcc`
+- **GNU ARM Embedded Toolchain 9 (2019-q4-major)**: `arm-none-eabi-gcc`
+  - Download: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+  - Specific version: `gcc-arm-none-eabi-9-2019-q4-major`
 - libbip.a library (placed in `../libbip/`)
-- Windows Batch or compatible shell environment
+- Windows (build.bat) or Linux (Makefile)
 
 ### Build Steps
+
+#### Windows
+
+First, install the ARM toolchain:
+1. Download from: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+2. Select version: **gcc-arm-none-eabi-9-2019-q4-major** (Windows x86_64)
+3. Extract and add to PATH
+
+Then build:
 
 ```bash
 ./build.bat
 ```
 
-This produces:
+#### Linux
+
+First, install the ARM toolchain:
+
+```bash
+cd /tmp && wget https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2 && tar xjf gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2 -C ~ && echo 'export PATH=$PATH:~/gcc-arm-none-eabi-9-2019-q4-major/bin' >> ~/.bashrc && source ~/.bashrc
+```
+
+Then build:
+
+```bash
+make clean
+make
+```
+
+### Output Files
+
+Both build methods produce:
 - `TennisScore.elf` - Executable for Amazfit Bip
 - `TennisScore.map` - Symbol map for debugging
+- Object files (`.o`) - Intermediate compilation artifacts
 
 ## Project Structure
 
@@ -62,7 +91,8 @@ This produces:
 TennisScore/
 ├── main.c                          Main application code
 ├── main.h                          Data structures and constants
-├── build.bat                       Build script for ARM cross-compiler
+├── build.bat                       Build script for Windows
+├── Makefile                        Build script for Linux/Fedora WSL
 └── README.md                       This file
 ```
 
