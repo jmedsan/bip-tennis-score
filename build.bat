@@ -4,11 +4,11 @@
 @if not defined COMPILER @SET COMPILER=GNUArmEmbeddedGCC
 @cd %~dp0
 
-:: выделяем наименование папки из пути скрипта - это название эльфа
+:: select the folder name from the script path - this is the name of the elf
 @SET PROGRAM_NAME=%~dp0
 @for /D %%a in ("%PROGRAM_NAME:~0,-1%.txt") do @SET PROGRAM_NAME=%%~na
 	
-:: Путь к компилятору
+:: path to the compiler
 @SET BASE_PATH=d:\Dev\AmazfitBip_FW\soft\Patch\GNUArmEmbeddedGCC
 @SET LIBRARY_PATH="!BASE_PATH!\arm-none-eabi\lib\thumb\v7e-m+fp\hard"
 @SET LD_OPT=-lm -lc
@@ -39,21 +39,21 @@ SET LABEL = %PROGRAM_NAME%
 )
 
 @call :echoColor 0F "====================================" 1
-@call :echoColor 0F "Наименование проекта: "
+@call :echoColor 0F "Project name: "
 @echo %PROGRAM_NAME%
-::@call :echoColor 0F "Отображаемое имя: "
+::@call :echoColor 0F "displayed name: "
 ::@echo %LABEL%
-@call :echoColor 0F "Компилятор: "
+@call :echoColor 0F "Compiler: "
 @echo %COMPILER%
-@call :echoColor 0F "Базовый путь: "
+@call :echoColor 0F "Base path: "
 @echo %BASE_PATH%
 
 @call :echoColor 0F "====================================" 1
 @echo.	
 
-@call :echoColor 0F "Начинаем сборку..." 1
+@call :echoColor 0F "Starting the assembly..." 1
 @SET PARTNAME=%PROGRAM_NAME%
-@call :echoColor 0B "Компиляция "
+@call :echoColor 0B "Compilation "
 @call :echoColor 0E "%PARTNAME%" 1
 
 @SET n=1
@@ -65,10 +65,10 @@ SET LABEL = %PROGRAM_NAME%
 @call :echoColor 0A "...OK" 1
 @SET /a n=n+1)
 @SET /a n=n-1
-@call :echoColor 0B "Итого: "
+@call :echoColor 0B "Total: "
 @call :echoColor 0E "%n%" 1
 
-@call :echoColor 0B "Сборка..."
+@call :echoColor 0B "Assembly..."
 %LD% -Map %PARTNAME%.map -o %PROGRAM_NAME%.elf %FILES_TO_COMPILE% %LD_OPT% %LIB_BIP%
 @if errorlevel 1 goto :error
 ::@call :echoColor 0B "."
@@ -85,16 +85,16 @@ if exist name.txt del name.txt
 ::@call :echoColor 0B "."
 
 @call :echoColor 0A "OK" 1
-@call :echoColor 0B "Сборка окончена." 1
+@call :echoColor 0B "Assembly complete." 1
 
 :done_
 
-@call :echoColor 0A "Готово." 1 
+@call :echoColor 0A "Done." 1 
 pause 
 @goto :EOF
 
 :error
-@call :echoColor 4e ОШИБКА! 1
+@call :echoColor 4e ERROR! 1
 @endlocal & @SET ERROR=ERROR
 @pause
 @goto :EOF
@@ -123,16 +123,16 @@ pause
 @set "%2=%PREFIX%%HEXSTR%"
 @exit /b 0
 ::===========================================================
-::	Вывод заданной строки заданным цветом
-::	3 параметр если не пустой задает перевод строки
-::  0 = Черный 	8 = Серый
-::  1 = Синий 	9 = Светло-синий
-::  2 = Зеленый A = Светло-зеленый
-::  3 = Голубой B = Светло-голубой
-::  4 = Красный C = Светло-красный
-::  5 = Лиловый D = Светло-лиловый
-::  6 = Желтый 	E = Светло-желтый
-::  7 = Белый 	F = Ярко-белый
+::	Output the given string with the given color
+::	3 parameter if not empty sets the line feed
+::  0 = Black  	8 = Grey
+::  1 = Blue 	9 = Light blue
+::  2 = Green   A = Light green
+::  3 = Cyan    B = Light cyan
+::  4 = Red     C = Light red
+::  5 = Purple  D = Light purple
+::  6 = Yellow 	E = Light yellow
+::  7 = White 	F = Bright white
 :echoColor [Color] [Text] [\n]
  @ if not defined BS for /F "tokens=1 delims=#" %%i in ('"prompt #$H#& echo on& for %%j in (.) do rem"') do set "BS=%%i"
  @ if not exist foo set /p .=.<nul>foo
