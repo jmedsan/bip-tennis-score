@@ -45,6 +45,7 @@ void clear_score(struct app_data_* app_data) {
 	app_data->score.serving_player = -1;
 	app_data->score.serving_player_tie_break = -1;
 	_strcpy(app_data->score.previous_sets, "");
+	app_data->score.advantage_count = 0;
 	app_data->time_last_point = -1;
 }
 
@@ -61,6 +62,7 @@ void copy_score(struct score_status* source, struct score_status* target) {
 	target->points[0] = source->points[0];
 	target->points[1] = source->points[1];
 	_strcpy(target->previous_sets, source->previous_sets);
+	target->advantage_count = source->advantage_count;
 }
 
 void add_score_to_history(struct app_data_* app_data) {
@@ -174,7 +176,53 @@ void print_point(int points[2], int pos_x[2], int screen_index, int serving_play
 	text_out_font(FONT_LETTER_BIG_6, text, pos_x[screen_index]-points_text_width, 89, 5);
 }
 
-void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2], char *previous_sets) {
+void draw_advantage_counter(int advantage_count, int points[2]) {
+	// Check if we should display anything (deuce or advantage state)
+	int is_deuce = (points[0] == POINT_40 && points[1] == POINT_40);
+	int is_advantage = (points[0] == POINT_AD || points[1] == POINT_AD);
+
+	if (!is_deuce && !is_advantage) {
+		return;
+	}
+
+	// Only display if advantage_count > 0
+	if (advantage_count == 0) {
+		return;
+	}
+
+	char* text;
+	int color;
+	int needs_free = 0;
+
+	// Determine what to display
+	if (advantage_count == 2 && is_deuce) {
+		// Star point: display "STAR" in cyan
+		text = STAR_POINT_TEXT;
+		color = COLOR_STAR_POINT;
+	} else {
+		// Numeric counter: display "N-AD" in light gray
+		text = (char*)pvPortMalloc(10);
+		_sprintf(text, "%d-AD", advantage_count);
+		color = COLOR_ADVANTAGE_COUNTER;
+		needs_free = 1;
+	}
+
+	// Load font and calculate centered position
+	load_font();
+	int text_w = text_width(text);
+	int x = (VIDEO_X / 2) - (text_w / 2);
+	int y = 84;
+
+	// Render centered text
+	text_out_font(FONT_LETTER_MIDDLE_5, text, x, y, color);
+
+	// Free allocated memory if needed
+	if (needs_free) {
+		vPortFree(text);
+	}
+}
+
+void draw_screen(int games[2], int serving_player, int serving_player_tie_break, int points[2], char *previous_sets, int advantage_count) {
 	// Header
 	set_bg_color(COLOR_BLACK);
 	fill_screen_bg();
@@ -195,6 +243,9 @@ void draw_screen(int games[2], int serving_player, int serving_player_tie_break,
 	// Points
 	print_point(points, pos_x, 0, serving_player, serving_player_tie_break);
 	print_point(points, pos_x, 1, serving_player, serving_player_tie_break);
+
+	// Advantage counter
+	draw_advantage_counter(advantage_count, points);
 
 	draw_clock(false);
 }
@@ -252,7 +303,7 @@ void show_screen (void *param0) {
 	}
 
 	// Here we draw the interface, updating (transferring to video memory) the screen is not necessary
-	draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets);
+	draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets, app_data->score.advantage_count);
 
 	// In case of inaction, turn off the backlight and avoid app termination
 	set_display_state_value(8, 1);
@@ -406,13 +457,18 @@ int dispatch_screen (void *param) {
 							app_data->score.serving_player_tie_break = app_data->score.serving_player;
 						}
 					} else {
+						// Check if we're moving from deuce (40-40) to advantage
+						if (tapped_player_score == POINT_40 && other_player_score == POINT_40) {
+							// Just moved from deuce to advantage
+							app_data->score.advantage_count++;
+						}
 						app_data->score.points[tapped_player]++;
 					}
 				}
 			}
 
 			// redraw the screen
-			draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets);
+			draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets, app_data->score.advantage_count);
 			repaint_screen_lines(1, VIDEO_Y);
 
 			break;
@@ -425,7 +481,7 @@ int dispatch_screen (void *param) {
 				vibrate(1, 70, 0);
 				app_data->time_last_point = get_current_timestamp();
 				// redraw the screen
-				draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets);
+				draw_screen(app_data->score.games, app_data->score.serving_player, app_data->score.serving_player_tie_break, app_data->score.points, app_data->score.previous_sets, app_data->score.advantage_count);
 				repaint_screen_lines(1, VIDEO_Y);
 			}
 			break;

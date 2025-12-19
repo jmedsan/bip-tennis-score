@@ -10,6 +10,9 @@
 
 #define SCORE_HISTORY_MAX_SIZE 8
 #define SETS_BUFFER_SIZE 200
+#define COLOR_ADVANTAGE_COUNTER  0x808080
+#define COLOR_STAR_POINT         COLOR_AQUA
+#define STAR_POINT_TEXT          "STAR"
 
 struct score_status {
 	int serving_player;
@@ -17,6 +20,7 @@ struct score_status {
 	int games[2];
 	int points[2];
 	char previous_sets[SETS_BUFFER_SIZE];
+	int advantage_count;
 };
 
 struct score_history_status {
