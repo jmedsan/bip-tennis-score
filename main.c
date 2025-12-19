@@ -1,10 +1,3 @@
-/*
-	Application template for Amazfit Bip BipOS
-	(C) Maxim Volkov  2019 <Maxim.N.Volkov@ya.ru>
-
-	Application template for BipOS loader
-*/
-
 #include <libbip.h>
 #include "main.h"
 
